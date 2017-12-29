@@ -25,7 +25,7 @@ echo
 echo "        date | $(LANG=C date)"
 echo "    hostname | $(hostname)"
 echo "      whoami | $(whoami)"
-type -p getenforce && echo "  getenforce | $(getenforce)"
+type -p getenforce > /dev/null && echo "  getenforce | $(getenforce)"
 echo
 
 
