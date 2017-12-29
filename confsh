@@ -179,7 +179,7 @@ function confsh-disable-selinux() {
         [[ "$(getenforce)" = "Enforcing" ]] && setenforce 0
         local vFile='/etc/selinux/config'
         eval "$(_csfEvalVariables)"
-        sed 's/^[[:space:]]*\(SELINUX=\)\(enforcing\|permissive\|[:space:]*\)/'"$(date +\#\ \%Y\%m\%d\ \#)"'\1\2\n\1disabled/g' -i "${vTmp}" ### do not remove space from [^d[:space:]]
+        sed 's/^[[:space:]]*\(SELINUX=\)\(enforcing\|permissive\|[:space:]\+\)/'"$(date +\#\ \%Y\%m\%d\ \#)"'\1\2\n\1disabled/g' -i "${vTmp}" ### do not remove space from [^d[:space:]]
         eval "$(_csfEvalDiffReflect)"
         return 0
     else
