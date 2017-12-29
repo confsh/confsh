@@ -193,9 +193,9 @@ function confsh-gen-authorized-keys()
 }
 function confsh-get-template-ifcfg()
 {
-    local vUri="${CONFSH_URI_PREFIX:?}/ROOT/etc/sysconfig/network-scripts/ifcfg-tmp" vFile="/tmp/ifcfg-tmp"
-    curl -LRsS --connect-timeout 10 "${vUri}" -o "${vFile}" && ls -l "${vFile}" && vi "${vFile}"
-    # 自動でdiff=>上書き確認=>上書きのようなヤツを書く
+    local vUri="${CONFSH_URI_PREFIX:?}/ROOT/etc/sysconfig/network-scripts/ifcfg-tmp" vFile="${HOME}/ifcfg-tmp"
+    test ! -f "${vFile}" && curl -LRsS "${vUri}" -o "${vFile}" && vi "${vFile}"
+    ls -l "${vFile}"
 }
 function confsh-setup-profile() {
     local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/profile" vFile="${HOME}/.profile"
