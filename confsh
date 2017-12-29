@@ -240,7 +240,7 @@ function confsh-add-sudoer() {
 function confsh-make-git() {
     if git version > /dev/null 2>&1
     then
-        _csfLogInfo "$(type -p git)"
+        _csfLogInfo "$(git version) $(type -p git)"
         return 0
     else
         _csfCheckRoot || return 1
@@ -267,6 +267,8 @@ function confsh-make-git() {
         tar -C /usr/local/src -xzf "${vFile}"
         (cd "${vGitSourceDir}"; make prefix=/usr/local all; make prefix=/usr/local install)
         [[ -d "${vGitSourceDir}" ]] && rm -rf "${vGitSourceDir}"
+        _csfLogInfo "$(git version) $(type -p git)"
+        return 0
     fi
 }
 function confsh-setup-github-ssh() {
