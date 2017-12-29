@@ -198,8 +198,12 @@ function confsh-get-template-ifcfg()
     test ! -f "${vFile}" && curl -LRsS "${vUri}" -o "${vFile}" && vi "${vFile}"
     ls -l "${vFile}"
 }
-function confsh-setup-profile() {
-    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/profile" vFile="${HOME}/.profile"
+function confsh-setup-bash-profile() {
+    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/bash_profile" vFile="${HOME}/.bash_profile"
+    eval "$(_csfEvalVariables)"
+    eval "$(_csfEvalCurlFile)"
+    eval "$(_csfEvalDiffReflect)"
+    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/bashrc" vFile="${HOME}/.bashrc"
     eval "$(_csfEvalVariables)"
     eval "$(_csfEvalCurlFile)"
     eval "$(_csfEvalDiffReflect)"
