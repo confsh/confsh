@@ -65,7 +65,8 @@ PS1=${PS1/'\$'/'(\[\033[01;36m\]confsh\[\033[0m\])\$'}
 
 
 # constants
-declare CONFSH_URI_PREFIX="http://confsh.com"
+#declare CONFSH_URI_PREFIX="http://confsh.com"
+declare CONFSH_URI_PREFIX="https://raw.githubusercontent.com/confsh/confsh/master"
 declare CONFSH_DIR="${HOME}/.confsh"
 declare CONFSH_BACKUP_DIR="${CONFSH_DIR}/backup";
 declare CONFSH_SECRETS_DIR="${CONFSH_DIR}/secrets";
