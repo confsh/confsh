@@ -1,0 +1,350 @@
+#!/bin/bash
+if [ "$(\basename -- "${0}")" != "bash" ]
+then
+    if \type -p bash > /dev/null
+    then
+        if [ "$(\basename -- "${SUDO_COMMAND}")" = "$(\basename -- "${0}")" ]
+        then
+            \sudo \bash --rcfile "${0}"
+        else
+            \bash --rcfile "${0}"
+        fi
+        \printf " \033[36m$(\printf %10s | \tr ' ' '=')\033[0m \033[37mSee you.\033[0m \033[36m$(\printf %$(($(\tput cols)-10-8-4))s | \tr ' ' '=')\033[0m \n"
+        exit 0
+    else
+        \printf "$(\date +'%Y-%m-%dT%H:%M:%S%z') $(\hostname -s) $(\basename -- "${0}")[$$]  [\033[31mFATAL\033[0m]: bash not found\n"
+        exit -1
+    fi
+else
+### profile ###
+
+
+# Welcome
+printf " \033[36m$(printf %10s | tr ' ' '=')\033[0m \033[37mWelcome to \033[01;36mconfsh\033[37m.\033[0m \033[36m$(printf %$(($(tput cols)-10-18-4))s | tr ' ' '=')\033[0m \n"
+echo
+echo "        date | $(LANG=C date)"
+echo "    hostname | $(hostname)"
+echo "      whoami | $(whoami)"
+echo
+
+
+function _csfCheckReplace() {
+    if [[ "$(sed --help)" =~ "--null-data" ]]
+    then
+        CONFSH_REPLACE="sed -rz"
+        return 0
+    elif [[ "$(perl --version)" =~ "perl 5" ]]
+    then
+        CONFSH_REPLACE="perl -0pe"
+        return 0
+    else
+        _csfPackageManagement install perl
+        if [[ "$(perl --version)" =~ "perl 5" ]]
+        then
+            CONFSH_REPLACE="perl -0pe"
+            return 0
+        else
+            \printf "$(\date +'%Y-%m-%dT%H:%M:%S%z') $(\hostname -s) $(\basename -- "${0}")[$$]  [\033[31mFATAL\033[0m]: confsh need GNU sed 4.2.2+ or Perl 5+\n"
+            return 1
+        fi
+    fi
+}
+if _csfCheckReplace
+then
+### REPLACE ###
+
+
+# env
+[[ "${PATH}" =~ /usr/local/bin ]] || PATH+=:/usr/local/bin
+[[ "${PATH}" =~ /usr/bin ]] || PATH+=:/usr/bin
+[[ "${PATH}" =~ /bin ]] || PATH+=:/bin
+[[ "${PATH}" =~ /usr/sbin ]] || PATH+=:/usr/sbin
+[[ "${PATH}" =~ /sbin ]] || PATH+=:/sbin
+[ "$(id -u)" = 0 ] && PS1='\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ ' || PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+PS1=${PS1/'\$'/'(\[\033[01;36m\]confsh\[\033[0m\])\$'}
+
+
+# constants
+declare CONFSH_URI_PREFIX="http://confsh.com"
+declare CONFSH_DIR="${HOME}/.confsh"
+declare CONFSH_BACKUP_DIR="${CONFSH_DIR}/backup";
+declare CONFSH_SECRETS_DIR="${CONFSH_DIR}/secrets";
+#declare CONFSH_LOG_DIR="${CONFSH_DIR}/log";
+#declare CONFSH_LOG_FILE="${CONFSH_LOG_DIR}/confsh_$(date +%Y%m%d).log";
+
+
+# alias
+unalias -a
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+alias crontab='crontab -i'
+alias l='ls -CF'
+alias la='ls -A'
+alias ll='ls -alF'
+alias ls='ls --color=auto'
+alias egrep='egrep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias grep='grep --color=auto'
+
+
+### function _csf* ###
+function _csfIfsBackup() { CONFSH_BACKUP_IFS=${IFS}; IFS=; }
+function _csfIfsRestore() { IFS=${CONFSH_BACKUP_IFS}; unset -v CONFSH_BACKUP_IFS; }
+function _csfDate() { date +'%Y-%m-%dT%H:%M:%S%z'; }
+function _csfHost() { hostname -s; } #function _csfHost() { uname -n | sed 's/\..*$//g'; }
+function _csfProc() { basename -- "${0}"; }
+function _csfFuncname() { basename -- ${FUNCNAME[1]}; }
+function _csfLogInfo()   { echo "${1}"   | awk '{print "'"$(_csfDate) $(_csfHost) $(_csfProc)[$$]   [$(tput setaf 2)INFO$(tput sgr0)]: "'"$0}'; }
+function _csfLogNotice() { echo "${1}"   | awk '{print "'"$(_csfDate) $(_csfHost) $(_csfProc)[$$] [$(tput setaf 4)NOTICE$(tput sgr0)]: "'"$0}'; }
+function _csfLogWarn()   { echo "${1}"   | awk '{print "'"$(_csfDate) $(_csfHost) $(_csfProc)[$$]   [$(tput setaf 3)WARN$(tput sgr0)]: "'"$0}'; }
+function _csfLogError()  { echo "${1}" | awk '{print "'"$(_csfDate) $(_csfHost) $(_csfProc)[$$]  [$(tput setaf 1)ERROR$(tput sgr0)]: "'"$0}'; }
+function _csfLogFatal()  { echo "${1}" | awk '{print "'"$(_csfDate) $(_csfHost) $(_csfProc)[$$]  [$(tput setaf 1)FATAL$(tput sgr0)]: "'"$0}'; exit 1; }
+[[ -d ${CONFSH_BACKUP_DIR} ]]  || mkdir -m 700 -p "${CONFSH_BACKUP_DIR}"  || _csfLogFatal "Failed to mkdir \"${CONFSH_BACKUP_DIR}\""
+[[ -d ${CONFSH_SECRETS_DIR} ]] || mkdir -m 700 -p "${CONFSH_SECRETS_DIR}" || _csfLogFatal "Failed to mkdir \"${CONFSH_SECRETS_DIR}\""
+function _csfEvalVariables() {
+    echo '{
+        local vTmp="${CONFSH_BACKUP_DIR}/$(basename -- "${vFile}").confsh.tmp";
+        local vBackupSuffix="$(date +".%Y-%m-%d@%H:%M:%S~")";
+        local vBackup="${CONFSH_BACKUP_DIR}/$(basename -- ${vFile})${vBackupSuffix}";
+        [[ -f "${vFile}" ]] || touch "${vFile}";
+        \cp -fp "${vFile}" "${vTmp}";
+    }'
+}
+function _csfEvalCurlFile() {
+    echo '{
+        if egrep -q "^.?# BEGIN CONFSH MANAGED BLOCK" "${vTmp}" && egrep -q "^.?# END CONFSH MANAGED BLOCK" "${vTmp}";
+        then
+            ${CONFSH_REPLACE:?} '"'"'
+                s/\n/<><><><LF><><><>/g;
+                s/\r/<><><><CR><><><>/g;
+                s[^>]?# BEGIN CONFSH MANAGED BLOCK.*# END CONFSH MANAGED BLOCK<><><><LF><><><>'"'"'"$(
+                    ${vCommand} | ${CONFSH_REPLACE:?} '"'"'
+                        s/\$/<><><><DOL><><><>/g;
+                        s/\&/<><><><AMP><><><>/g;
+                        s/\n/<><><><LF><><><>/g;
+                        s/\r/<><><><CR><><><>/g;
+                        s/\\/\\\\/g;'"'"'
+                )"'"'"'g;
+                s/<><><><CR><><><>/\r/g;
+                s/<><><><LF><><><>/\n/g;
+                s/<><><><AMP><><><>/\&/g;
+                s/<><><><DOL><><><>/\$/g;
+            '"'"' "${vFile}" > "${vTmp}";
+        else
+            ${vCommand} >> "${vTmp}";
+        fi;
+    }'
+}
+function _csfEvalDiffReflect() {
+    echo '{
+        if diff "${vFile}" "${vTmp}" > /dev/null 2>&1;
+        then
+            \rm -f "${vTmp}";
+        else
+            \mv -f "${vFile}" "${vBackup}";
+            \mv -f "${vTmp}" "${vFile}";
+            _csfLogInfo "$(diff -u "${vBackup}" "${vFile}")";
+        fi;
+    }'
+}
+function _csfCheckRoot() { [ "$(id -u)" = "0" ] || { _csfLogError 'Please run as root user.'; return 1; }; }
+function _csfCheckPython() { (python -V > /dev/null 2>&1) || { _csfLogError 'python is not installed.'; return 1; }; }
+function _csfCheckCentOS5() { grep -i 'centos[^0-9]* 5[0-9\.]*' /etc/redhat-release > /dev/null 2>&1; }
+function _csfCheckCentOS6() { grep -i 'centos[^0-9]* 6[0-9\.]*' /etc/centos-release > /dev/null 2>&1; }
+function _csfCheckCentOS7() { grep -i 'centos[^0-9]* 7[0-9\.]*' /etc/centos-release > /dev/null 2>&1; }
+function _csfCheckCentOS() { _csfCheckCentOS5 || _csfCheckCentOS6 || _csfCheckCentOS7; }
+function _csfCheckUbuntu1404() { grep -i 'ubuntu[^0-9]* 14.*04' /etc/lsb-release > /dev/null 2>&1; }
+function _csfCheckUbuntu1604() { grep -i 'ubuntu[^0-9]* 16.*04' /etc/lsb-release > /dev/null 2>&1; }
+function _csfCheckUbuntu() { _csfCheckUbuntu1404 || _csfCheckUbuntu1604; }
+function _csfCheckOS() { _csfCheckCentOS || _csfCheckUbuntu; }
+
+
+### function confsh-* ###
+function confsh-get-list() { declare -f | egrep '^confsh|^_csf' | sed 's/ ()//g'; }
+function confsh-get-usage-memory() { awk 'BEGIN{i=0;j=0;k=0;l=0}; /^MemTotal:/{i=$2}; /^MemFree:/{j=$2}; /^Active\(file\):/{k=$2}; /^Inactive\(file\):/{l=$2}; END{print (i-j-k-l)*100/i}' /proc/meminfo; }
+function confsh-get-used-ip() { [[ ${1} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo ${1}.{1..254} | xargs -P254 -n1 ping -s1 -c1 -W1 | grep ttl | sort -V | sed 's/[^ ]* byte[^ ]* from //g; s/: icmp_seq=[01]*//g; s/\(=6[34]\)/\1 (Linux)/g; s/\(=12[78]\)/\1 (Windows)/g; s/\(=25[45]\)/\1 (Unix)/g;' || { echo "Usage: ${FUNCNAME[0]} 192.168.100"; return 1; }; }
+function confsh-genpasswd() { echo "$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c 16)"; }
+function confsh-escape-stdin() { python -c 'import sys,re; print(re.escape(sys.stdin.read()).rstrip())' /dev/stdin | sed 's/\\$//g'; }
+function confsh-remove-comment() {
+    local vChar="${1:?'Please set character of comment. REQUIRE QUOTES!!! ex: "#"'}"
+    local vFile="${2:?'Please set file path.'}"
+    egrep -v "^[[:space:]]*${vChar}|^[[:space:]]*$" "${vFile}"
+}
+function confsh-disable-selinux() {
+    _csfCheckRoot || return 1
+    if _csfCheckCentOS
+    then
+        [[ "$(getenforce)" = "Enforcing" ]] && setenforce 0
+        local vFile='/etc/selinux/config'
+        eval "$(_csfEvalVariables)"
+        sed 's/^[[:space:]]*\(SELINUX=\)\(enforcing\|permissive\|[:space:]*\)/'"$(date +\#\ \%Y\%m\%d\ \#)"'\1\2\n\1disabled/g' -i "${vTmp}" ### do not remove space from [^d[:space:]]
+        eval "$(_csfEvalDiffReflect)"
+        return 0
+    else
+        _csfLogError "${FUNCNAME[0]}: OS not supported."
+        return 1
+    fi
+}
+function confsh-gen-authorized-keys()
+{
+    ([ -d ~/.ssh ] || echo | ssh-keygen -t rsa -N "" -f ~/.ssh/tmp && \rm -f $_{,.pub}) && (test -f ~/.ssh/authorized_keys || touch $_) && chmod 600 ~/.ssh/authorized_keys && ls -l $_
+}
+function confsh-get-template-ifcfg()
+{
+    local vUri="${CONFSH_URI_PREFIX:?}/ROOT/etc/sysconfig/network-scripts/ifcfg-tmp" vFile="/tmp/ifcfg-tmp"
+    curl -LRsS --connect-timeout 10 "${vUri}" -o "${vFile}" && ls -l "${vFile}" && vi "${vFile}"
+    # 自動でdiff=>上書き確認=>上書きのようなヤツを書く
+}
+function confsh-setup-profile() {
+    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/profile" vFile="${HOME}/.profile"
+    eval "$(_csfEvalVariables)"
+    eval "$(_csfEvalCurlFile)"
+    eval "$(_csfEvalDiffReflect)"
+}
+function confsh-setup-vimrc() {
+    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX:?}/ROOT/home/HOME/vimrc" vFile="${HOME}/.vimrc"
+    eval "$(_csfEvalVariables)"
+    eval "$(_csfEvalCurlFile)"
+    eval "$(_csfEvalDiffReflect)"
+}
+function confsh-setup-timezone-jst() {
+    [[ "$(date +%Z)" = JST ]] && return 0
+    if (timedatectl > /dev/null 2>&1)
+    then
+        _csfLogInfo "Before: $(date +%Z), After: $(timedatectl set-timezone Asia/Tokyo > /dev/null 2>&1)$(date +%Z)"
+    else
+        _csfLogInfo "Before: $(date +%Z), After: $(ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime > /dev/null 2>&1)$(date +%Z)"
+    fi
+    [[ "$(date +%Z)" = JST ]] || { _csfLogError "Failed to set Timezone \"JST\"."; return 1; }
+}
+function confsh-add-sudoer() {
+    _csfCheckRoot || return 1
+    local vUsername="${1:?'Please set username for sudo.'}"
+    local vSudoSetting="${vUsername} ALL=(ALL) NOPASSWD:ALL" vSudoersdFile="/etc/sudoers.d/${vUsername}"
+    if egrep -q "^${vUsername}:.+:/[^:]*sh$" /etc/passwd
+    then
+        if ! egrep -q "^[[:space:]]*${vSudoSetting}" "${vSudoersdFile}" 2> /dev/null
+        then
+            echo -e "$(date +\#\ \%Y\%m\%d\ \#)""\n${vSudoSetting}" > "${vSudoersdFile}"
+            chmod 440 "${vSudoersdFile}"
+            chown root:root "${vSudoersdFile}"
+            _csfLogInfo "$(ls -l "${vSudoersdFile}")"
+        fi
+    else
+        _csfLogError "user(${vUsername}) not exist."
+        return 1
+    fi
+}
+function confsh-make-git() {
+    if git version > /dev/null 2>&1
+    then
+        _csfLogInfo "$(type -p git)"
+        return 0
+    else
+        _csfCheckRoot || return 1
+        if yum --help > /dev/null 2>&1
+        then
+            yum makecache fast
+            yum -y install expat-devel gcc gettext-devel libcurl-devel make openssl-devel perl-ExtUtils-MakeMaker zlib-devel || return 1
+        elif apt --help > /dev/null 2>&1
+        then
+            apt update
+            apt -y install gcc gettext libssl-dev libcurl4-openssl-dev libexpat1-dev make || return 1
+        else
+            _csfLogError "${FUNCNAME[0]}: OS not supported."
+            return 1
+        fi
+        local vGitBaseUri='https://www.kernel.org/pub/software/scm/git/'
+        local vUri="${vGitBaseUri}$(curl -LRsS --connect-timeout 10 ${vGitBaseUri} | sed 's/^.*<a href="\(.*\)">.*$/\1/g' | egrep '^git-[0-9\.]+.tar.gz' | sort -V | tail -n 1)"
+        local vFile="/usr/local/src/$(basename -- ${vUri})"
+        local vCommand="curl -LRsS ${vUri}"
+        local vGitSourceDir="/usr/local/src/$(basename -- "${vFile}" .tar.gz)"
+        _csfLogInfo "GET ${vUri}"
+        curl -LR --connect-timeout 10 "${vUri}" -o "${vFile}"
+        _csfLogInfo "$(ls -l "${vFile}")"
+        tar -C /usr/local/src -xzf "${vFile}"
+        (cd "${vGitSourceDir}"; make prefix=/usr/local all; make prefix=/usr/local install)
+        [[ -d "${vGitSourceDir}" ]] && rm -rf "${vGitSourceDir}"
+    fi
+}
+function confsh-setup-github-ssh() {
+    if git config remote.origin.url | grep -q 'github.com'
+    then
+        local vCommand="curl -LRsS ${CONFSH_URI_PREFIX:?}/ROOT/home/HOME/ssh/config" vFile="${HOME}/.ssh/config"
+        [[ -d "${HOME}/.ssh" ]] || echo | ssh-keygen -t rsa -N "" -f ~/.ssh/tmp && \rm -f ~/.ssh/tmp{,.pub}
+        [[ -d "${HOME}/.ssh" ]] || { _confshLogError "Failed to mkdir \"${HOME}/.ssh\""; return 1; }
+        eval "$(_csfEvalVariables)"
+        eval "$(_csfEvalCurlFile)"
+        chmod 600 "${vTmp}"
+        eval "$(_csfEvalDiffReflect)"
+        if git config remote.origin.url | grep -q 'https://github.com/'
+        then
+            _csfLogInfo "Prease run commands below:"
+            _csfLogInfo "$ git remote set-url origin git@github.com:$(git config remote.origin.url | sed 's@https://github.com/\([^/]\+\)/\([^/]\+\.git\).*@\1/\2@g')"
+        else
+            git config remote.origin.url
+        fi
+    else
+        _csfLogWarn "Not a github repository."
+        return 0
+    fi
+}
+function confsh-install-jq-linux64() {
+    _csfCheckRoot || return 1
+    local vUri="https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64" vFile="/usr/local/bin/jq"
+    if type -p "$(basename "${vFile}")" > /dev/null
+    then
+        _csfLogInfo "$(ls -l "$(type -p "$(basename "${vFile}")")")"
+    else
+        curl -LR "${vUri}" -o "${vFile}" && chmod +x $_
+        _csfLogInfo "$(ls -l "$(type -p "$(basename "${vFile}")")")"
+        type -p "$(basename "${vFile}")" > /dev/null || { _csfLogError "Failed to install \"$(basename "${vFile}")\"."; return 1; }
+    fi
+}
+function confsh-install-certbot-auto() {
+    _csfCheckRoot || return 1
+    local vUri="https://dl.eff.org/certbot-auto" vFile="/usr/local/bin/certbot-auto"
+    if type -p "$(basename "${vFile}")" > /dev/null
+    then
+        _csfLogInfo "$(ls -l "$(type -p "$(basename "${vFile}")")")"
+    else
+        curl -LR "${vUri}" -o "${vFile}" && chmod +x $_
+        _csfLogInfo "$(ls -l "$(type -p "$(basename "${vFile}")")")"
+        type -p "$(basename "${vFile}")" > /dev/null || { _csfLogError "Failed to install \"$(basename "${vFile}")\"."; return 1; }
+    fi
+}
+function confsh-setup-certbot-auto() {
+    if type -p certbot-auto > /dev/null
+    then
+        _csfLogInfo "Prease run commands below:"
+        _csfLogInfo '$ WEBSERVER_FQDN= WEBROOT_PATH= MAILADDR='
+        _csfLogInfo '$ certbot-auto certonly -d ${WEBSERVER_FQDN:?} -n --webroot --webroot-path ${WEBROOT_PATH:?} --agree-tos -m ${MAILADDR:?}'
+    else
+        _csfLogError "\"certbot-auto\" not installed."
+        return 1
+    fi
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### REPLACE ###
+fi
+### profile ###
+fi
+
+

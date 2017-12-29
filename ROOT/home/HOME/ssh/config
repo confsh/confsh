@@ -1,0 +1,7 @@
+# BEGIN CONFSH MANAGED BLOCK
+# github.com
+Host github github.com
+        HostName github.com
+        IdentityFile ~/.ssh/id_rsa
+        User git
+# END CONFSH MANAGED BLOCK
