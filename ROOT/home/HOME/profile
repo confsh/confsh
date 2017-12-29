@@ -8,6 +8,10 @@ function _csfProfile(){
     [ "$(id -u)" = 0 ] && PS1='\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ ' || PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
     # number of history
     export HISTSIZE=10000
+    # golang
+    export GOROOT=$HOME/local/go
+    export GOPATH=$HOME/go
+    export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
     # Change default EDITOR
     which vi > /dev/null && export EDITOR=$(which vi)
     which vim > /dev/null && export EDITOR=$(which vim) && view='vim -R'
