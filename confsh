@@ -203,10 +203,6 @@ function confsh-setup-bash-profile() {
     eval "$(_csfEvalVariables)"
     eval "$(_csfEvalCurlFile)"
     eval "$(_csfEvalDiffReflect)"
-    local vCommand="curl -LRsS ${CONFSH_URI_PREFIX}/ROOT/home/HOME/bashrc" vFile="${HOME}/.bashrc"
-    eval "$(_csfEvalVariables)"
-    eval "$(_csfEvalCurlFile)"
-    eval "$(_csfEvalDiffReflect)"
 }
 function confsh-setup-vimrc() {
     local vCommand="curl -LRsS ${CONFSH_URI_PREFIX:?}/ROOT/home/HOME/vimrc" vFile="${HOME}/.vimrc"
