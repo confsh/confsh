@@ -150,8 +150,8 @@ function _csfEvalDiffReflect() {
         fi;
     }'
 }
-function _csfCheckRoot() { [ "$(id -u)" = "0" ] || { _csfLogError 'Please run as root user.'; return 1; }; }
-function _csfCheckPython() { (python -V > /dev/null 2>&1) || { _csfLogError 'python is not installed.'; return 1; }; }
+function _csfCheckRoot() { [[ $(id -u) = 0 ]] || { _csfLogError "${FUNCNAME[1]}: Please run as root user."; return 1; }; }
+function _csfCheckPython() { python -V > /dev/null 2>&1 || { _csfLogError "python is not installed."; return 1; }; }
 function _csfCheckCentOS5() { grep -i 'centos[^0-9]* 5[0-9\.]*' /etc/redhat-release > /dev/null 2>&1; }
 function _csfCheckCentOS6() { grep -i 'centos[^0-9]* 6[0-9\.]*' /etc/centos-release > /dev/null 2>&1; }
 function _csfCheckCentOS7() { grep -i 'centos[^0-9]* 7[0-9\.]*' /etc/centos-release > /dev/null 2>&1; }
@@ -166,14 +166,14 @@ function _csfCheckOS() { _csfCheckCentOS || _csfCheckUbuntu; }
 function confsh-get-list() { declare -f | egrep '^confsh|^_csf' | sed 's/ ()//g'; }
 function confsh-get-usage-memory() { awk 'BEGIN{i=0;j=0;k=0;l=0}; /^MemTotal:/{i=$2}; /^MemFree:/{j=$2}; /^Active\(file\):/{k=$2}; /^Inactive\(file\):/{l=$2}; END{print (i-j-k-l)*100/i}' /proc/meminfo; }
 function confsh-get-used-ip() { [[ ${1} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo ${1}.{1..254} | xargs -P254 -n1 ping -s1 -c1 -W1 | grep ttl | sort -V | sed 's/[^ ]* byte[^ ]* from //g; s/: icmp_seq=[01]*//g; s/\(=6[34]\)/\1 (Linux)/g; s/\(=12[78]\)/\1 (Windows)/g; s/\(=25[45]\)/\1 (Unix)/g;' || { echo "Usage: ${FUNCNAME[0]} 192.168.100"; return 1; }; }
-function confsh-genpasswd() { echo "$(cat /dev/urandom | tr -dc '[:alnum:]' | head -c 16)"; }
+function confsh-gen-passwd() { echo $(cat /dev/urandom | tr -dc '[:alnum:]' | head -c 16); }
 function confsh-escape-stdin() { python -c 'import sys,re; print(re.escape(sys.stdin.read()).rstrip())' /dev/stdin | sed 's/\\$//g'; }
-function confsh-remove-comment() {
+function confsh-grep-v-comment() {
     local vChar="${1:?'Please set character of comment. REQUIRE QUOTES!!! ex: "#"'}"
     local vFile="${2:?'Please set file path.'}"
     egrep -v "^[[:space:]]*${vChar}|^[[:space:]]*$" "${vFile}"
 }
-function confsh-disable-selinux() {
+[[ $(id -u) = 0 ]] && function confsh-disable-selinux() {
     _csfCheckRoot || return 1
     if _csfCheckCentOS
     then
@@ -210,17 +210,18 @@ function confsh-setup-vimrc() {
     eval "$(_csfEvalCurlFile)"
     eval "$(_csfEvalDiffReflect)"
 }
-function confsh-setup-timezone-jst() {
+[[ $(id -u) = 0 ]] && function confsh-setup-timezone-jst() {
+    _csfCheckRoot || return 1
     [[ "$(date +%Z)" = JST ]] && return 0
     if (timedatectl > /dev/null 2>&1)
     then
-        _csfLogInfo "Before: $(date +%Z), After: $(timedatectl set-timezone Asia/Tokyo > /dev/null 2>&1)$(date +%Z)"
+        _csfLogInfo "Before: $(date +%Z), After: $(timedatectl set-timezone Asia/Tokyo > /dev/null)$(date +%Z)"
     else
-        _csfLogInfo "Before: $(date +%Z), After: $(ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime > /dev/null 2>&1)$(date +%Z)"
+        _csfLogInfo "Before: $(date +%Z), After: $(ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime > /dev/null)$(date +%Z)"
     fi
     [[ "$(date +%Z)" = JST ]] || { _csfLogError "Failed to set Timezone \"JST\"."; return 1; }
 }
-function confsh-add-sudoer() {
+[[ $(id -u) = 0 ]] && function confsh-add-sudoer() {
     _csfCheckRoot || return 1
     local vUsername="${1:?'Please set username for sudo.'}"
     local vSudoSetting="${vUsername} ALL=(ALL) NOPASSWD:ALL" vSudoersdFile="/etc/sudoers.d/${vUsername}"
@@ -238,7 +239,8 @@ function confsh-add-sudoer() {
         return 1
     fi
 }
-function confsh-make-git() {
+[[ $(id -u) = 0 ]] && function confsh-make-git() {
+    _csfCheckRoot || return 1
     if git version > /dev/null 2>&1
     then
         _csfLogInfo "$(git version) $(type -p git)"
@@ -294,7 +296,7 @@ function confsh-setup-github-ssh() {
         return 0
     fi
 }
-function confsh-install-jq-linux64() {
+[[ $(id -u) = 0 ]] && function confsh-install-jq-linux64() {
     _csfCheckRoot || return 1
     local vUri="https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64" vFile="/usr/local/bin/jq"
     if type -p "$(basename "${vFile}")" > /dev/null
@@ -306,7 +308,7 @@ function confsh-install-jq-linux64() {
         type -p "$(basename "${vFile}")" > /dev/null || { _csfLogError "Failed to install \"$(basename "${vFile}")\"."; return 1; }
     fi
 }
-function confsh-install-certbot-auto() {
+[[ $(id -u) = 0 ]] && function confsh-install-certbot-auto() {
     _csfCheckRoot || return 1
     local vUri="https://dl.eff.org/certbot-auto" vFile="/usr/local/bin/certbot-auto"
     if type -p "$(basename "${vFile}")" > /dev/null
@@ -318,7 +320,7 @@ function confsh-install-certbot-auto() {
         type -p "$(basename "${vFile}")" > /dev/null || { _csfLogError "Failed to install \"$(basename "${vFile}")\"."; return 1; }
     fi
 }
-function confsh-setup-certbot-auto() {
+[[ $(id -u) = 0 ]] && function confsh-setup-certbot-auto() {
     if type -p certbot-auto > /dev/null
     then
         _csfLogInfo "Prease run commands below:"
