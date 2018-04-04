@@ -5,9 +5,10 @@ function _csfBashProfile(){
     # number of history
     export HISTSIZE=10000
     # golang
-    export GOROOT=$HOME/local/go
-    export GOPATH=$HOME/go
-    export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+    #export GOROOT=$HOME/local/go
+    #export GOROOT=$(go env GOROOT)
+    #export GOPATH=$HOME/go
+    #export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
     # Change default EDITOR
     type -p vi > /dev/null && export EDITOR=$(type -p vi)
     type -p vim > /dev/null && export EDITOR=$(type -p vim) && view='vim -R'
@@ -23,7 +24,8 @@ function _csfBashProfile(){
     alias l='ls -CF'
     alias la='ls -A'
     alias ll='ls -alF'
-    alias ls='ls --color=auto'
+    #alias ls='ls --color=auto'
+    #alias ls='ls -G'
     alias egrep='egrep --color=auto'
     alias fgrep='fgrep --color=auto'
     alias grep='grep --color=auto'
